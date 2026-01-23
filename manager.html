@@ -1,0 +1,514 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartMarkr 智签管家</title>
+  <link rel="stylesheet" href="styles/manager.css">
+</head>
+
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="title-group">
+        <div class="app-logo">📚</div>
+        <div>
+          <h1 data-i18n="app_title">SmartMarkr 智签管家</h1>
+          <p class="subtitle" data-i18n="app_subtitle">智能书签管理：重复检测 / 空文件夹 / 智能归档</p>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <button class="btn secondary nav-btn" data-target="search-section" data-i18n="nav_search">书签搜索</button>
+        <button class="btn secondary nav-btn" data-target="duplicate-section" data-i18n="nav_duplicates">重复书签</button>
+        <button class="btn secondary nav-btn" data-target="duplicate-folder-section"
+          data-i18n="nav_dup_folders">重复文件夹</button>
+        <button class="btn secondary nav-btn" data-target="empty-folder-section"
+          data-i18n="nav_empty_folders">空文件夹</button>
+        <button class="btn secondary nav-btn" data-target="broken-section" data-i18n="nav_broken">异常书签</button>
+        <button class="btn secondary nav-btn" data-target="archive-section" data-i18n="nav_archive">书签归档</button>
+        <button class="btn secondary nav-btn" data-target="transfer-section" data-i18n="nav_transfer">导入导出</button>
+      </nav>
+      <div class="header-actions">
+        <!-- 语言切换 -->
+        <div class="lang-switch">
+          <button id="lang-zh" class="lang-btn active" title="中文">🇨🇳 中文</button>
+          <button id="lang-en" class="lang-btn" title="English">🇺🇸 EN</button>
+        </div>
+        <!-- 主题切换 -->
+        <div class="theme-switch">
+          <button id="theme-light" class="theme-btn" title="浅色主题">☀️</button>
+          <button id="theme-dark" class="theme-btn active" title="深色主题">🌙</button>
+        </div>
+        <div class="divider"></div>
+        <button id="refresh-btn" class="btn secondary" data-i18n="refresh_data">刷新数据</button>
+        <button id="clear-trash-btn" class="btn danger" data-i18n="clear_trash">清空回收站</button>
+        <label class="select compact">
+          <span data-i18n="results_columns">结果列数</span>
+          <select id="results-columns">
+            <option value="1">1列</option>
+            <option value="2">2列</option>
+            <option value="3" selected>3列</option>
+            <option value="4">4列</option>
+          </select>
+        </label>
+        <button id="open-settings" class="btn secondary" data-i18n="settings">设置</button>
+        <button id="donate-header-btn" class="btn donate-header-btn" data-i18n="donate_btn">
+          <span class="donate-heart-icon">❤️</span>
+          <span>打赏</span>
+        </button>
+        <button id="undo-btn" class="btn" disabled data-i18n="undo">撤销上一步</button>
+        <span id="undo-label" class="undo-label"></span>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- 书签搜索功能区域 -->
+      <section class="card" id="search-section">
+        <div class="card-header">
+          <h2><span class="section-icon">🔍</span><span data-i18n="search_title">书签搜索</span></h2>
+          <div class="header-buttons">
+            <button class="btn secondary collapse-btn" data-target="search-section" data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <div class="search-input-wrapper">
+          <label class="input search-input-label">
+            <span data-i18n="search_input_label">请输入关键词、URL或三选项</span>
+            <input type="text" id="search-input" placeholder="输入关键词、URL或选三选择"
+              data-i18n-placeholder="search_input_placeholder">
+          </label>
+          <div class="search-button-group">
+            <button id="search-btn" class="btn primary" data-i18n="search_btn">搜索</button>
+            <button id="validate-btn" class="btn secondary" data-i18n="validate_btn">验证</button>
+          </div>
+        </div>
+        <div class="options">
+          <label class="check"><input type="checkbox" id="search-title" checked><span
+              data-i18n="search_title_option">标题</span></label>
+          <label class="check"><input type="checkbox" id="search-url" checked><span
+              data-i18n="search_url_option">URL</span></label>
+          <label class="check"><input type="checkbox" id="search-text-only"><span
+              data-i18n="search_text_only">仅文本小写</span></label>
+        </div>
+        <div class="actions">
+          <p class="search-hint" data-i18n="search_hint">未搜索到符合条件的书签</p>
+          <p class="search-result-stats" id="search-result-stats"></p>
+        </div>
+        <div id="search-results" class="results"></div>
+      </section>
+
+      <section class="card" id="duplicate-section">
+        <div class="card-header">
+          <h2><span class="section-icon">🔁</span><span data-i18n="dup_title">重复书签整理</span></h2>
+          <div class="header-buttons">
+            <button id="scan-duplicates" class="btn primary" data-i18n="scan">开始扫描</button>
+            <button id="refresh-duplicates" class="btn secondary" data-i18n="refresh">刷新</button>
+            <button class="btn secondary collapse-btn" data-target="duplicate-section" data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <div class="options">
+          <label class="check"><input type="checkbox" id="dup-exact" checked><span
+              data-i18n="dup_exact">完全重复（URL相同）</span></label>
+          <label class="check"><input type="checkbox" id="dup-similar" checked><span
+              data-i18n="dup_similar">相似网页（标题/路径相似）</span></label>
+          <label class="range">
+            <span data-i18n="similarity_threshold">相似度阈值</span>
+            <input type="range" id="similarity-threshold" min="0.6" max="0.95" step="0.05" value="0.8">
+            <span id="similarity-value">0.80</span>
+          </label>
+          <label class="select">
+            <span data-i18n="smart_rule">智能选择规则</span>
+            <select id="dup-smart-rule">
+              <option value="oldest" data-i18n="keep_oldest">保留最久（最早添加）</option>
+              <option value="newest" data-i18n="keep_newest">保留最新（最近添加）</option>
+              <option value="longestUrl" data-i18n="keep_longest_url">保留URL最长</option>
+              <option value="shortestUrl" data-i18n="keep_shortest_url">保留URL最短</option>
+              <option value="longestTitle" data-i18n="keep_longest_title">保留标题最长</option>
+              <option value="shortestTitle" data-i18n="keep_shortest_title">保留标题最短</option>
+            </select>
+            <button id="dup-smart-apply" class="btn secondary" disabled data-i18n="apply">应用</button>
+          </label>
+        </div>
+        <div class="actions">
+          <button id="dup-select-all" class="btn secondary" disabled data-i18n="select_all">全选</button>
+          <button id="dup-delete" class="btn danger" disabled data-i18n="delete_selected">删除选中</button>
+          <button id="dup-delete-direct" class="btn danger" disabled data-i18n="delete_direct">直接删除</button>
+          <button id="dup-smart-oldest" class="btn secondary" disabled data-i18n="quick_keep_oldest">快捷：保留最久</button>
+          <button id="dup-smart-newest" class="btn secondary" disabled data-i18n="quick_keep_newest">快捷：保留最新</button>
+          <button id="dup-smart-longest-url" class="btn secondary" disabled
+            data-i18n="quick_keep_longest_url">快捷：保留URL最长</button>
+        </div>
+        <div id="duplicate-results" class="results"></div>
+      </section>
+
+      <section class="card" id="duplicate-folder-section">
+        <div class="card-header">
+          <h2><span class="section-icon">📁</span><span data-i18n="dup_folder_title">重复文件夹整理</span></h2>
+          <div class="header-buttons">
+            <button id="scan-dup-folders" class="btn primary" data-i18n="scan">开始扫描</button>
+            <button id="refresh-dup-folders" class="btn secondary" data-i18n="refresh">刷新</button>
+            <button class="btn secondary collapse-btn" data-target="duplicate-folder-section"
+              data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="dup-folder-select-all" class="btn secondary" disabled data-i18n="select_all">全选</button>
+          <button id="dup-folder-delete" class="btn danger" disabled data-i18n="delete_selected">删除选中</button>
+          <button id="dup-folder-delete-direct" class="btn danger" disabled data-i18n="delete_direct">直接删除</button>
+        </div>
+        <div id="duplicate-folder-results" class="results"></div>
+      </section>
+
+      <section class="card" id="empty-folder-section">
+        <div class="card-header">
+          <h2><span class="section-icon">🧹</span><span data-i18n="empty_folder_title">空文件夹清理</span></h2>
+          <div class="header-buttons">
+            <button id="scan-empty-folders" class="btn primary" data-i18n="scan">开始扫描</button>
+            <button id="refresh-empty-folders" class="btn secondary" data-i18n="refresh">刷新</button>
+            <button class="btn secondary collapse-btn" data-target="empty-folder-section"
+              data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="empty-folder-select-all" class="btn secondary" disabled data-i18n="select_all">全选</button>
+          <button id="empty-folder-delete" class="btn danger" disabled data-i18n="delete_selected">删除选中</button>
+          <button id="empty-folder-delete-direct" class="btn danger" disabled data-i18n="delete_direct">直接删除</button>
+        </div>
+        <div id="empty-folder-results" class="results"></div>
+      </section>
+
+      <section class="card" id="broken-section">
+        <div class="card-header">
+          <h2><span class="section-icon">⚠️</span><span data-i18n="broken_title">异常书签整理</span></h2>
+          <div class="header-buttons">
+            <button id="scan-broken" class="btn primary" data-i18n="detect">开始检测</button>
+            <button id="refresh-broken" class="btn secondary" data-i18n="refresh">刷新</button>
+            <button class="btn secondary collapse-btn" data-target="broken-section" data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <div class="options">
+          <label class="check"><input type="checkbox" id="broken-empty" checked><span
+              data-i18n="broken_empty">空链接</span></label>
+          <label class="check"><input type="checkbox" id="broken-invalid" checked><span
+              data-i18n="broken_invalid">无效URL</span></label>
+          <label class="check"><input type="checkbox" id="broken-timeout" checked><span
+              data-i18n="broken_timeout">超时</span></label>
+          <label class="check"><input type="checkbox" id="broken-status" checked><span
+              data-i18n="broken_status">状态码异常（>=400）</span></label>
+          <label class="input">
+            <span data-i18n="timeout_seconds">超时（秒）</span>
+            <input type="number" id="broken-timeout-seconds" min="2" max="30" value="8">
+          </label>
+          <label class="input">
+            <span data-i18n="concurrency">并发数</span>
+            <input type="number" id="broken-concurrency" min="1" max="10" value="4">
+          </label>
+        </div>
+        <div class="actions">
+          <button id="broken-select-all" class="btn secondary" disabled data-i18n="select_all">全选</button>
+          <button id="broken-delete" class="btn danger" disabled data-i18n="delete_selected">删除选中</button>
+          <button id="broken-delete-direct" class="btn danger" disabled data-i18n="delete_direct">直接删除</button>
+          <button id="broken-pause" class="btn warning hidden" data-i18n="pause">⏸ 暂停</button>
+        </div>
+        <div class="progress hidden" id="broken-progress">
+          <div class="progress-track">
+            <div class="progress-bar" id="broken-progress-bar"></div>
+          </div>
+          <span class="progress-text" id="broken-progress-text">准备检测...</span>
+        </div>
+        <div id="broken-results" class="results"></div>
+      </section>
+
+      <section class="card" id="archive-section">
+        <div class="card-header">
+          <h2><span class="section-icon">🗂️</span><span data-i18n="archive_title">书签归档</span></h2>
+          <div class="header-buttons">
+            <button id="archive-preview" class="btn primary" data-i18n="preview_generate">生成预览</button>
+            <button class="btn secondary collapse-btn" data-target="archive-section" data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <div class="options">
+          <label class="check"><input type="radio" name="archive-mode" value="domain" checked><span
+              data-i18n="archive_by_domain">按域名归档</span></label>
+          <label class="check"><input type="radio" name="archive-mode" value="type"><span
+              data-i18n="archive_by_type">按类型归档</span></label>
+          <label class="check"><input type="radio" name="archive-mode" value="custom"><span
+              data-i18n="archive_by_custom">按用户文件夹归档</span></label>
+          <label class="select">
+            <span data-i18n="archive_root">归档根目录</span>
+            <select id="archive-root"></select>
+            <button id="refresh-folders" class="btn small" data-i18n="refresh_folders">刷新目录</button>
+          </label>
+          <label class="input">
+            <span data-i18n="archive_new_root">新建归档根目录</span>
+            <input type="text" id="archive-new-root" placeholder="输入新文件夹名称"
+              data-i18n-placeholder="archive_new_root_placeholder">
+            <button id="archive-create-root" class="btn small" data-i18n="create_and_select">创建并选中</button>
+          </label>
+          <div class="archive-filter-block">
+            <div class="archive-filter-actions">
+              <label class="select">
+                <span data-i18n="filter_groups">过滤分组</span>
+                <select id="archive-filter"></select>
+              </label>
+              <button id="archive-filter-refresh" class="btn small" data-i18n="refresh_groups">刷新目录</button>
+            </div>
+            <div id="archive-filter-checks" class="archive-filter-checks"></div>
+          </div>
+          <label class="input">
+            <span data-i18n="keyword_filter">关键词筛选</span>
+            <input type="text" id="archive-keyword-filter" placeholder="标题或URL关键词"
+              data-i18n-placeholder="keyword_filter_placeholder">
+          </label>
+          <label class="select">
+            <span data-i18n="bulk_archive_to">筛选归档到</span>
+            <select id="archive-bulk-target"></select>
+            <button id="archive-apply-filtered" class="btn small" data-i18n="apply_to_filtered">应用到筛选结果</button>
+          </label>
+        </div>
+        <div class="actions">
+          <button id="archive-select-all" class="btn secondary" disabled data-i18n="select_all">全选</button>
+          <button id="archive-run" class="btn primary" disabled data-i18n="run_archive">执行归档</button>
+        </div>
+        <div id="archive-results" class="results"></div>
+      </section>
+
+      <section class="card" id="transfer-section">
+        <div class="card-header">
+          <h2><span class="section-icon">&#128230;</span><span data-i18n="transfer_title">导入 / 导出</span></h2>
+          <div class="header-buttons">
+            <button class="btn secondary collapse-btn" data-target="transfer-section" data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <p class="transfer-desc" data-i18n="transfer_desc">轻松导入或导出你的书签和标签页数据。</p>
+        <div class="transfer-grid">
+          <div class="transfer-panel">
+            <h3 data-i18n="export_title">导出</h3>
+            <div class="transfer-options">
+              <label class="check"><input type="checkbox" id="export-bookmarks" checked><span
+                  data-i18n="export_bookmarks">导出书签</span></label>
+              <label class="check"><input type="checkbox" id="export-tabs" checked><span
+                  data-i18n="export_tabs">导出标签页</span></label>
+              <label class="input">
+                <span data-i18n="export_filename">文件名</span>
+                <input type="text" id="export-filename" placeholder="bookmark-export.json"
+                  data-i18n-placeholder="export_filename_placeholder">
+              </label>
+              <label class="select">
+                <span data-i18n="export_format">格式</span>
+                <select id="export-format">
+                  <option value="json">JSON</option>
+                  <option value="html">HTML</option>
+                </select>
+              </label>
+            </div>
+            <div class="actions transfer-actions">
+              <button id="export-btn" class="btn primary" data-i18n="export_run">导出</button>
+              <button id="export-copy" class="btn secondary" data-i18n="export_copy">复制到剪贴板</button>
+            </div>
+            <div id="export-result" class="transfer-hint"></div>
+          </div>
+          <div class="transfer-panel">
+            <h3 data-i18n="import_title">导入</h3>
+            <div class="transfer-options">
+              <label class="input">
+                <span data-i18n="import_file">选择文件</span>
+                <input type="file" id="import-file" accept=".json,application/json,.html,text/html">
+              </label>
+              <label class="check"><input type="checkbox" id="import-bookmarks" checked><span
+                  data-i18n="import_bookmarks">导入书签</span></label>
+              <label class="check"><input type="checkbox" id="import-tabs" checked><span
+                  data-i18n="import_tabs">导入标签页</span></label>
+              <label class="select">
+                <span data-i18n="import_target">导入到</span>
+                <select id="import-target"></select>
+              </label>
+              <label class="check"><input type="checkbox" id="import-tabs-open"><span
+                  data-i18n="import_tabs_open">打开导入的标签页</span></label>
+              <label class="check"><input type="checkbox" id="import-tabs-bookmark" checked><span
+                  data-i18n="import_tabs_bookmark">将标签页保存为书签</span></label>
+            </div>
+            <div class="actions transfer-actions">
+              <button id="import-run" class="btn primary" data-i18n="import_run">开始导入</button>
+              <button id="import-clear" class="btn secondary" data-i18n="import_clear">清空选择</button>
+            </div>
+            <div id="import-result" class="transfer-hint"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="float-actions">
+    <button id="scroll-top" class="float-btn triangle up" title="返回顶部">⬆️</button>
+    <button id="scroll-bottom" class="float-btn triangle down" title="到达底部">⬇️</button>
+  </div>
+
+  <!-- 打赏模态框 -->
+  <div id="donate-modal" class="donate-modal hidden">
+    <div class="donate-backdrop"></div>
+    <div class="donate-content">
+      <div class="donate-header">
+        <h3 data-i18n="donate_title">支持开发者</h3>
+        <button id="donate-close" class="btn danger small" data-i18n="close">关闭</button>
+      </div>
+      <div class="donate-body">
+        <p class="donate-desc" data-i18n="donate_desc">如果您觉得这个工具对您有帮助，欢迎打赏支持开发者继续改进！</p>
+
+        <!-- 二维码并排显示 -->
+        <div class="donate-qrcodes">
+          <!-- 微信支付 -->
+          <div class="donate-qrcode-item">
+            <div class="qrcode-frame wechat-frame">
+              <img src="images/wechat_donate.jpg" alt="微信支付二维码" class="qrcode-img">
+            </div>
+            <div class="qrcode-label wechat-label">
+              <span class="payment-icon">💚</span>
+              <span data-i18n="donate_wechat">微信支付</span>
+            </div>
+          </div>
+
+          <!-- 支付宝 -->
+          <div class="donate-qrcode-item">
+            <div class="qrcode-frame alipay-frame">
+              <img src="images/alipay_donate.png" alt="支付宝二维码" class="qrcode-img">
+            </div>
+            <div class="qrcode-label alipay-label">
+              <span class="payment-icon">💙</span>
+              <span data-i18n="donate_alipay">支付宝</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="donate-thanks">
+          <span class="sparkle">✨</span>
+          <span data-i18n="donate_thanks">感谢您的支持！</span>
+          <span class="sparkle">✨</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 打赏成功提示 -->
+  <div id="donate-success-toast" class="donate-success-toast hidden">
+    <div class="toast-content">
+      <span class="toast-icon">🎉</span>
+      <span class="toast-message" data-i18n="donate_success_message">感谢您的支持！祝您使用愉快！</span>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="settings-modal hidden">
+    <div class="settings-backdrop"></div>
+    <div class="settings-content">
+      <div class="settings-header">
+        <h3 data-i18n="settings_title">功能设置</h3>
+        <button id="settings-close" class="btn danger small" data-i18n="close">关闭</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <h4 data-i18n="settings_general">常规设置</h4>
+          <label class="select">
+            <span data-i18n="theme">主题</span>
+            <select id="setting-theme">
+              <option value="dark" data-i18n="theme_dark">黑色</option>
+              <option value="light" data-i18n="theme_light">白色</option>
+              <option value="auto" data-i18n="theme_auto">跟随系统</option>
+            </select>
+          </label>
+          <label class="select">
+            <span data-i18n="language">语言</span>
+            <select id="setting-language">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label class="select">
+            <span data-i18n="results_columns">结果列数</span>
+            <select id="setting-columns">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h4 data-i18n="settings_duplicates">重复书签默认</h4>
+          <label class="check"><input type="checkbox" id="setting-dup-exact"><span
+              data-i18n="dup_exact">完全重复（URL相同）</span></label>
+          <label class="check"><input type="checkbox" id="setting-dup-similar"><span
+              data-i18n="dup_similar">相似网页（标题/路径相似）</span></label>
+          <label class="range">
+            <span data-i18n="similarity_threshold">相似度阈值</span>
+            <input type="range" id="setting-similarity" min="0.6" max="0.95" step="0.05" value="0.8">
+            <span id="setting-similarity-value">0.80</span>
+          </label>
+          <label class="select">
+            <span data-i18n="smart_rule">智能选择规则</span>
+            <select id="setting-smart-rule">
+              <option value="oldest" data-i18n="keep_oldest">保留最久（最早添加）</option>
+              <option value="newest" data-i18n="keep_newest">保留最新（最近添加）</option>
+              <option value="longestUrl" data-i18n="keep_longest_url">保留URL最长</option>
+              <option value="shortestUrl" data-i18n="keep_shortest_url">保留URL最短</option>
+              <option value="longestTitle" data-i18n="keep_longest_title">保留标题最长</option>
+              <option value="shortestTitle" data-i18n="keep_shortest_title">保留标题最短</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-section">
+          <h4 data-i18n="settings_broken">异常书签默认</h4>
+          <label class="check"><input type="checkbox" id="setting-broken-empty"><span
+              data-i18n="broken_empty">空链接</span></label>
+          <label class="check"><input type="checkbox" id="setting-broken-invalid"><span
+              data-i18n="broken_invalid">无效URL</span></label>
+          <label class="check"><input type="checkbox" id="setting-broken-timeout"><span
+              data-i18n="broken_timeout">超时</span></label>
+          <label class="check"><input type="checkbox" id="setting-broken-status"><span
+              data-i18n="broken_status">状态码异常（>=400）</span></label>
+          <label class="input">
+            <span data-i18n="timeout_seconds">超时（秒）</span>
+            <input type="number" id="setting-broken-timeout-seconds" min="2" max="30" value="8">
+          </label>
+          <label class="input">
+            <span data-i18n="concurrency">并发数</span>
+            <input type="number" id="setting-broken-concurrency" min="1" max="10" value="4">
+          </label>
+        </div>
+        <div class="settings-section">
+          <h4 data-i18n="settings_archive">归档默认</h4>
+          <label class="select">
+            <span data-i18n="archive_mode">归档方式</span>
+            <select id="setting-archive-mode">
+              <option value="domain" data-i18n="archive_by_domain">按域名归档</option>
+              <option value="type" data-i18n="archive_by_type">按类型归档</option>
+              <option value="custom" data-i18n="archive_by_custom">按用户文件夹归档</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="settings-footer">
+        <button id="settings-cancel" class="btn secondary" data-i18n="cancel">取消</button>
+        <button id="settings-save" class="btn primary" data-i18n="save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="preview-modal" class="preview-modal hidden">
+    <div class="preview-backdrop"></div>
+    <div class="preview-content">
+      <div class="preview-header">
+        <span id="preview-url" class="preview-url">预览</span>
+        <div class="preview-actions">
+          <button id="preview-open-tab" class="btn secondary small" data-i18n="open_new_tab">新标签打开</button>
+          <button id="preview-close" class="btn danger small" data-i18n="close">关闭</button>
+        </div>
+      </div>
+      <iframe id="preview-frame" class="preview-frame" src="about:blank"></iframe>
+      <div id="preview-hint" class="preview-hint" data-i18n="preview_hint">如果页面无法显示，请点击“新标签打开”。</div>
+    </div>
+  </div>
+
+  <script src="scripts/manager.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="g128" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="shadow128" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#6366f1" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glow128">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- 背景圆角矩形 -->
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="url(#g128)" filter="url(#shadow128)"/>
+  <!-- 书签形状 -->
+  <path d="M32 24h64a6 6 0 016 6v74l-38-26-38 26V30a6 6 0 016-6z" 
+        fill="#ffffff" 
+        opacity="0.95"
+        filter="url(#glow128)"/>
+  <!-- 星星徽章 -->
+  <circle cx="96" cy="32" r="16" fill="#fbbf24"/>
+  <path d="M96 22l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="#fff"/>
+  <!-- 勾选标记 -->
+  <path d="M48 58l12 12 24-24" 
+        stroke="#6366f1" 
+        stroke-width="6" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"/>
+</svg>
