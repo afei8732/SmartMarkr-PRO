@@ -77,6 +77,6 @@ SmartMarkr 智签管家：专业浏览器书签管理扩展，高效规整海量
 ---
 📧 联系我们
 
-GitHub：https://github.com/smartmarkr-PRO 邮箱：feidan8732@gmail.com
+GitHub：https://github.com/afei8732/SmartMarkr-PRO邮箱：feidan8732@gmail.com
 
 感谢使用 SmartMarkr 智签管家！让书签管理更智能，浏览更高效 🎉
