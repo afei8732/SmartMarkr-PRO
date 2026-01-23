@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
   'use strict';
 
   const state = {
@@ -2730,6 +2730,65 @@
     await scanBrokenBookmarks();
   }
 
+  async function fetchWithTimeout(url, options, timeoutSeconds) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      return { response };
+    } catch (error) {
+      return { error };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function probeBookmarkUrl(url, timeoutSeconds) {
+    const head = await fetchWithTimeout(
+      url,
+      {
+        method: 'HEAD',
+        cache: 'no-store',
+        redirect: 'follow',
+        credentials: 'include'
+      },
+      timeoutSeconds
+    );
+
+    if (head.response) {
+      if (head.response.type === 'opaque') return { ok: true };
+      if (head.response.status < 400) return { ok: true, status: head.response.status };
+    }
+
+    const get = await fetchWithTimeout(
+      url,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        redirect: 'follow',
+        credentials: 'include',
+        headers: { Range: 'bytes=0-0' }
+      },
+      timeoutSeconds
+    );
+
+    if (get.response) {
+      if (get.response.type === 'opaque') return { ok: true };
+      if (get.response.status < 400) return { ok: true, status: get.response.status };
+      return { ok: false, status: get.response.status };
+    }
+
+    const timeout = (get.error && get.error.name === 'AbortError')
+      || (head.error && head.error.name === 'AbortError');
+    const status = head.response && head.response.status >= 400 ? head.response.status : null;
+    return {
+      ok: false,
+      status,
+      error: get.error || head.error,
+      timeout
+    };
+  }
+
   async function checkBookmark(bookmark, timeoutSeconds) {
     const url = (bookmark.url || '').trim();
     if (!url) {
@@ -2747,32 +2806,15 @@
       return buildBroken(bookmark, 'invalid', '无效URL', `不支持的协议：${parsed.protocol}`);
     }
 
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
-      const response = await fetch(url, {
-        method: 'HEAD',
-        cache: 'no-store',
-        redirect: 'follow',
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-
-      if (response.type === 'opaque') {
-        return null;
-      }
-
-      if (response.status >= 400) {
-        return buildBroken(bookmark, 'status', '状态码异常', `HTTP ${response.status}`);
-      }
-
-      return null;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        return buildBroken(bookmark, 'timeout', '超时', `超过 ${timeoutSeconds}s`);
-      }
-      return buildBroken(bookmark, 'status', '无法访问', error.message || '请求失败');
+    const probe = await probeBookmarkUrl(url, timeoutSeconds);
+    if (probe.ok) return null;
+    if (probe.timeout) {
+      return buildBroken(bookmark, 'timeout', '超时', `超过 ${timeoutSeconds}s`);
     }
+    if (probe.status) {
+      return buildBroken(bookmark, 'status', '状态码异常', `HTTP ${probe.status}`);
+    }
+    return buildBroken(bookmark, 'status', '无法访问', probe.error?.message || '请求失败');
   }
 
   function buildBroken(bookmark, reason, label, detail) {
@@ -3501,16 +3543,11 @@
     const validatedResults = [];
 
     for (const bookmark of results) {
-      try {
-        const response = await fetch(bookmark.url, { method: 'HEAD', timeout: 5000 });
-        if (response.ok) {
-          validCount++;
-          validatedResults.push({ ...bookmark, valid: true });
-        } else {
-          invalidCount++;
-          validatedResults.push({ ...bookmark, valid: false });
-        }
-      } catch (error) {
+      const probe = await probeBookmarkUrl(bookmark.url, 5);
+      if (probe.ok) {
+        validCount++;
+        validatedResults.push({ ...bookmark, valid: true });
+      } else {
         invalidCount++;
         validatedResults.push({ ...bookmark, valid: false });
       }
