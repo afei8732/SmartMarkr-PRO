@@ -63,10 +63,7 @@ SmartMarkr 智签管家：专业浏览器书签管理扩展，高效规整海量
 项目结构：含后台脚本、图标/资源文件、业务脚本、样式文件及配置文件。
 
 
----
-🤝 社区与支持
 
-反馈渠道：GitHub Issues、support@smartmarkr.com；开源协议：MIT。
 
 
 ---
