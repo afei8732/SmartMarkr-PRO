@@ -17,6 +17,7 @@
     archiveFilterOptions: [],
     archiveBookmarks: [],
     archiveMode: 'domain',
+    archiveNaming: 'zh',
     archiveGroupKeys: [],
     brokenPaging: {},
     currentPreviewUrl: null,
@@ -49,7 +50,8 @@
     },
     archive: {
       mode: 'domain',
-      minGroupSize: 2
+      minGroupSize: 2,
+      naming: 'zh'
     },
     ai: {
       baseUrl: 'http://192.168.3.176:8787/v1',
@@ -170,6 +172,10 @@
       archive_by_ai: 'AI 智能分类归档',
       archive_by_date: '按添加时间归档',
       archive_min_group: '最小分组数量',
+      archive_naming: '分组命名语言',
+      archive_naming_zh: '中文',
+      archive_naming_en: 'English',
+      archive_naming_both: '中文（English）',
       ai_config_title: 'AI 配置',
       ai_base_url: '接口地址',
       ai_api_key: 'API Key',
@@ -369,6 +375,10 @@
       archive_by_ai: 'AI smart categories',
       archive_by_date: 'By date added',
       archive_min_group: 'Minimum group size',
+      archive_naming: 'Folder name language',
+      archive_naming_zh: 'Chinese',
+      archive_naming_en: 'English',
+      archive_naming_both: 'Chinese (English)',
       ai_config_title: 'AI configuration',
       ai_base_url: 'Endpoint',
       ai_api_key: 'API key',
@@ -523,6 +533,7 @@
     archiveBulkTarget: document.getElementById('archive-bulk-target'),
     archiveApplyFiltered: document.getElementById('archive-apply-filtered'),
     archiveMinGroup: document.getElementById('archive-min-group'),
+    archiveNaming: document.getElementById('archive-naming'),
 
     aiConfigPanel: document.getElementById('ai-config-panel'),
     aiBaseUrl: document.getElementById('ai-base-url'),
@@ -728,6 +739,8 @@
     const mode = settings.archive.mode;
     const radio = document.querySelector(`input[name=\"archive-mode\"][value=\"${mode}\"]`);
     if (radio) radio.checked = true;
+    if (elements.archiveMinGroup) elements.archiveMinGroup.value = settings.archive.minGroupSize || 2;
+    if (elements.archiveNaming) elements.archiveNaming.value = settings.archive.naming || 'zh';
 
     setResultsColumns(settings.resultsColumns);
   }
@@ -1992,9 +2005,17 @@
 
   function archiveCategoryLabel(categoryId) {
     const engine = archiveEngine();
+    const naming = state.archiveNaming || 'zh';
     if (engine && Array.isArray(engine.CATEGORIES)) {
       const found = engine.CATEGORIES.find(c => c.id === categoryId);
-      if (found) return `${found.icon || ''} ${found.label}`.trim();
+      if (found) {
+        const en = found.label || categoryId;
+        const zh = found.labelZh || found.label || categoryId;
+        let name = zh;
+        if (naming === 'en') name = en;
+        else if (naming === 'both') name = `${zh}（${en}）`;
+        return `${found.icon || ''} ${name}`.trim();
+      }
     }
     return categoryId || ARCHIVE_OTHER_LABEL;
   }
@@ -2219,6 +2240,7 @@
       }
     }
     state.archiveGroupKeys = groupKeys || [];
+    state.archiveNaming = elements.archiveNaming?.value || loadSettings().archive?.naming || 'zh';
 
     const validBookmarks = bookmarks.filter(bookmark =>
       bookmark.url &&
@@ -4154,6 +4176,24 @@
     }
     if (elements.aiClear) {
       elements.aiClear.addEventListener('click', clearAiConfig);
+    }
+    if (elements.archiveNaming) {
+      elements.archiveNaming.addEventListener('change', () => {
+        state.archiveNaming = elements.archiveNaming.value || 'zh';
+        const settings = loadSettings();
+        settings.archive = { ...(settings.archive || {}), naming: state.archiveNaming };
+        saveSettings(settings);
+      });
+    }
+    if (elements.archiveMinGroup) {
+      elements.archiveMinGroup.addEventListener('change', () => {
+        const settings = loadSettings();
+        settings.archive = {
+          ...(settings.archive || {}),
+          minGroupSize: Math.max(1, Number(elements.archiveMinGroup.value || 2))
+        };
+        saveSettings(settings);
+      });
     }
     elements.archiveSelectAll.addEventListener('click', () => selectAll('.archive-checkbox'));
     elements.archiveRun.addEventListener('click', runArchive);
