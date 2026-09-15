@@ -7,7 +7,7 @@
 Manifest V3 · 纯本地运行 · 零账号 · 零上传 · 无需后端
 
 [![Manifest](https://img.shields.io/badge/Manifest-V3-blue.svg)](manifest.json)
-[![Tests](https://img.shields.io/badge/tests-10%2F10-brightgreen.svg)](#开发与验证)
+[![Tests](https://img.shields.io/badge/tests-19%2F19-brightgreen.svg)](#开发与验证)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
 </div>
@@ -150,6 +150,7 @@ SmartMarkr-PRO/
 │   └── manager.js              界面控制器与 Chrome Bookmarks API 集成
 ├── tests/
 │   ├── selftest.js             Node 20 回归测试（node:test）
+│   ├── mv3-compliance.js       Manifest V3 合规检查（CSP、清单、加载顺序）
 │   └── e2e-mock.py             Playwright + chrome.* 桩的端到端验证
 └── docs/
     └── COMPARISON.md           同类项目能力对比与取舍
@@ -175,7 +176,7 @@ manager.js  ──uses──▶  dedupe.js
 
 ```bash
 npm run check   # 对全部脚本做 node --check 语法检查
-npm test        # Node 20 回归测试（10 项）
+npm test        # Node 20 回归测试 + MV3 合规检查（19 项）
 python tests/e2e-mock.py   # 端到端：真实 Chrome + chrome.* API 桩
 ```
 
@@ -193,6 +194,20 @@ python tests/e2e-mock.py   # 端到端：真实 Chrome + chrome.* API 桩
 | 8 | 扫描去重：同一 URL 只探测一次并回填所有 ID |
 | 9 | 导入导出：嵌套文件夹与实体的往返一致性 |
 | 10 | 快照：扁平化、HTML 导出、还原后数量一致 |
+
+**MV3 合规检查（tests/mv3-compliance.js，9 项）**：
+
+| 编号 | 用例 |
+|---|---|
+| 11 | 清单可解析、无 BOM、声明 MV3，且不含 MV2 遗留字段 |
+| 12 | 权限最小化，host 访问位于 `host_permissions`，无内容脚本 |
+| 13 | 清单引用的每个文件都真实存在 |
+| 14 | `manager.html` 无内联脚本、无内联事件处理器（MV3 CSP 要求） |
+| 15 | 脚本全部本地加载且依赖顺序正确 |
+| 16 | 发布脚本中无 `eval` / `new Function` |
+| 17 | service worker 使用 `chrome.action` 而非 `chrome.browserAction` |
+| 18 | `manager.js` 不含 MV2 专有 API |
+| 19 | 五个引擎模块均为 UMD 且可从 Node 引入 |
 
 端到端脚本额外验证：五个引擎在页面中全部加载、重复检测出结果、快照创建成功、失效检测报告 404、空文件夹识别、归档预览、导入导出往返、相似聚类，且**页面零报错**。
 
