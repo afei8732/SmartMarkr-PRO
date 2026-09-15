@@ -61,6 +61,10 @@ npm run check   # 语法检查全部脚本
 - v2.0.0 Manifest V3 迁移；新增快照备份、链接检测引擎、导入导出引擎与回归测试
 - v1.0.0 首个公开版本
 
+## 同类项目对比
+
+与 karakeep、linkwarden、shiori、linkding、buku、floccus、sidebery 等项目的逐项能力对照、采纳与取舍理由见 [docs/COMPARISON.md](docs/COMPARISON.md)。
+
 ## 链接
 
 - 仓库：https://github.com/afei8732/SmartMarkr-PRO

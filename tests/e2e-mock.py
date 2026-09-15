@@ -73,6 +73,47 @@ def main():
         print("SNAPSHOT_ROWS", page.evaluate("document.querySelectorAll('#snapshot-results .result-group').length"))
         print("SNAPSHOT_STATUS", page.evaluate("document.getElementById('snapshot-result').textContent"))
 
+        # Dead-link scan with a deterministic fetch stub (404 -> broken, 200 -> ok).
+        page.evaluate(
+            """
+            window.fetch = (url, opts) => Promise.resolve({
+              status: String(url).includes('github.com') ? 404 : 200,
+              url: String(url), type: 'basic', redirected: false
+            });
+            """
+        )
+        page.uncheck("#broken-empty")
+        page.uncheck("#broken-invalid")
+        page.uncheck("#broken-timeout")
+        page.check("#broken-status")
+        page.fill("#broken-concurrency", "2")
+        page.click("#scan-broken")
+        page.wait_for_timeout(4000)
+        print("BROKEN_ROWS", page.evaluate("document.querySelectorAll('#broken-results .result-group').length"))
+        print("BROKEN_TEXT", page.evaluate("document.getElementById('broken-results').textContent.slice(0,120)"))
+
+        # Empty-folder detection
+        page.click("#scan-empty-folders")
+        page.wait_for_timeout(1200)
+        print("EMPTY_ROWS", page.evaluate("document.querySelectorAll('#empty-folder-results .result-group').length"))
+
+        # Archive preview
+        page.click("#archive-preview")
+        page.wait_for_timeout(1500)
+        print("ARCHIVE_GROUPS", page.evaluate("document.querySelectorAll('#archive-results .result-group').length"))
+
+        # Portable IO round-trip inside the page
+        print("PORTABLE_ROUNDTRIP", page.evaluate(
+            "(()=>{const h=SMPortableIO.buildNetscapeHtml([{title:'A&B',url:'https://e.example/a?x=1&y=2',path:['Dev']}]);"
+            "const r=SMPortableIO.parseNetscapeHtml(h);return r.length===1&&r[0].url==='https://e.example/a?x=1&y=2';})()"))
+
+        # Similar-title clustering in the browser context
+        print("SIMILAR_GROUPS", page.evaluate(
+            "(()=>{const r=SMDedupe.findDuplicates(["
+            "{id:'a',title:'OpenAI API Documentation',url:'https://platform.openai.com/docs/intro',parentId:'1',path:['b'],dateAdded:1},"
+            "{id:'b',title:'OpenAI API Documentation Guide',url:'https://platform.openai.com/docs/guide',parentId:'1',path:['b'],dateAdded:2}"
+            "],{includeExact:false,threshold:0.6});return r.groups.length;})()"))
+
         print("PAGE_ERRORS", json.dumps(errors[:10]))
         browser.close()
 
