@@ -324,6 +324,14 @@
                 <span data-i18n="import_target">导入到</span>
                 <select id="import-target"></select>
               </label>
+              <label class="select">
+                <span data-i18n="import_conflict">重复处理</span>
+                <select id="import-conflict">
+                  <option value="skip" data-i18n="import_conflict_skip">跳过已存在（推荐）</option>
+                  <option value="duplicate" data-i18n="import_conflict_duplicate">仍然创建副本</option>
+                  <option value="overwrite" data-i18n="import_conflict_overwrite">覆盖同链接书签</option>
+                </select>
+              </label>
               <label class="check"><input type="checkbox" id="import-tabs-open"><span
                   data-i18n="import_tabs_open">打开导入的标签页</span></label>
               <label class="check"><input type="checkbox" id="import-tabs-bookmark" checked><span

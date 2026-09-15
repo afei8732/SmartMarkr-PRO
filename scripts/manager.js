@@ -112,6 +112,10 @@
       import_bookmarks: '导入书签',
       import_tabs: '导入标签页',
       import_target: '导入到',
+      import_conflict: '重复处理',
+      import_conflict_skip: '跳过已存在（推荐）',
+      import_conflict_duplicate: '仍然创建副本',
+      import_conflict_overwrite: '覆盖同链接书签',
       import_tabs_open: '打开导入的标签页',
       import_tabs_bookmark: '将标签页保存为书签',
       import_run: '开始导入',
@@ -294,6 +298,10 @@
       import_bookmarks: 'Import bookmarks',
       import_tabs: 'Import tabs',
       import_target: 'Import to',
+      import_conflict: 'Duplicates',
+      import_conflict_skip: 'Skip existing (recommended)',
+      import_conflict_duplicate: 'Create duplicates',
+      import_conflict_overwrite: 'Overwrite same URL',
       import_tabs_open: 'Open imported tabs',
       import_tabs_bookmark: 'Save tabs as bookmarks',
       import_run: 'Start import',
@@ -493,6 +501,7 @@
     importBookmarks: document.getElementById('import-bookmarks'),
     importTabs: document.getElementById('import-tabs'),
     importTarget: document.getElementById('import-target'),
+    importConflict: document.getElementById('import-conflict'),
     importTabsOpen: document.getElementById('import-tabs-open'),
     importTabsBookmark: document.getElementById('import-tabs-bookmark'),
     importRun: document.getElementById('import-run'),
@@ -3302,10 +3311,51 @@
 
       // Import Bookmarks
       if (wantBookmarks && bookmarkNodes.length) {
-        // If HTML, bookmarkNodes is the list of top-level items.
-        // If parsing logic returned root's children, we are good.
         const rootFolder = await createBookmark({ parentId: targetId, title: `导入书签 ${stamp}` });
-        importedBookmarks += await importBookmarkNodes(bookmarkNodes, rootFolder.id);
+        const portable = typeof globalThis !== 'undefined' ? globalThis.SMPortableIO : null;
+        const conflictPolicy = elements.importConflict?.value || 'skip';
+
+        // Flatten the parsed tree into engine records so conflict policies apply.
+        const flattenForImport = (nodes, path, out) => {
+          for (const node of nodes || []) {
+            if (!node) continue;
+            if (node.url) {
+              out.push({ title: node.title || node.url, url: node.url, path: path.slice() });
+              continue;
+            }
+            const nextPath = node.title ? [...path, node.title] : path;
+            flattenForImport(node.children || [], nextPath, out);
+          }
+        };
+        const flatRecords = [];
+        flattenForImport(bookmarkNodes, [], flatRecords);
+
+        if (portable && typeof portable.importBookmarks === 'function' && flatRecords.length) {
+          if (conflictPolicy === 'overwrite') {
+            await AutoBackup.capture('导入覆盖前快照', { count: flatRecords.length });
+          }
+          const adapter = {
+            create: (data) => createBookmark(data),
+            getChildren: (id) => getChildren(id),
+            remove: (id) => new Promise((resolve) => {
+              chrome.bookmarks.remove(id, () => resolve());
+            })
+          };
+          const importResult = await portable.importBookmarks(flatRecords, adapter, {
+            targetFolderId: rootFolder.id,
+            conflictPolicy,
+            dedupeByUrl: true
+          });
+          importedBookmarks += importResult.created;
+          if (importResult.skipped) {
+            console.info('import skipped', importResult.skipped, 'duplicates');
+          }
+          if (importResult.failed) {
+            console.warn('import failed records', importResult.failed, importResult.errors.slice(0, 5));
+          }
+        } else {
+          importedBookmarks += await importBookmarkNodes(bookmarkNodes, rootFolder.id);
+        }
       }
 
       // Import Tabs (Open or Save as Bookmark)
