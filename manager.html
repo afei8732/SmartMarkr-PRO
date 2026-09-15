@@ -233,8 +233,43 @@
               data-i18n="archive_by_domain">按域名归档</span></label>
           <label class="check"><input type="radio" name="archive-mode" value="type"><span
               data-i18n="archive_by_type">按类型归档</span></label>
+          <label class="check"><input type="radio" name="archive-mode" value="ai"><span
+              data-i18n="archive_by_ai">按 AI 智能分类归档</span></label>
+          <label class="check"><input type="radio" name="archive-mode" value="date"><span
+              data-i18n="archive_by_date">按添加时间归档</span></label>
           <label class="check"><input type="radio" name="archive-mode" value="custom"><span
               data-i18n="archive_by_custom">按用户文件夹归档</span></label>
+
+          <details class="ai-config" id="ai-config-panel">
+            <summary data-i18n="ai_config_title">AI 配置</summary>
+            <div class="ai-config-body">
+              <label class="input">
+                <span data-i18n="ai_base_url">接口地址</span>
+                <input type="text" id="ai-base-url" placeholder="http://192.168.3.176:8787/v1"
+                  data-i18n-placeholder="ai_base_url_placeholder">
+              </label>
+              <label class="input">
+                <span data-i18n="ai_api_key">API Key</span>
+                <input type="password" id="ai-api-key" placeholder="sk-..." data-i18n-placeholder="ai_api_key_placeholder">
+              </label>
+              <label class="select">
+                <span data-i18n="ai_model">模型</span>
+                <select id="ai-model"></select>
+              </label>
+              <div class="ai-config-actions">
+                <button id="ai-test" class="btn small secondary" data-i18n="ai_test">测试连接</button>
+                <button id="ai-refresh-models" class="btn small secondary" data-i18n="ai_refresh_models">拉取模型</button>
+                <button id="ai-save" class="btn small primary" data-i18n="ai_save">保存配置</button>
+                <button id="ai-clear" class="btn small danger" data-i18n="ai_clear">清除配置</button>
+              </div>
+              <div id="ai-status" class="transfer-hint"></div>
+            </div>
+          </details>
+
+          <label class="input">
+            <span data-i18n="archive_min_group">最小分组数量</span>
+            <input type="number" id="archive-min-group" min="1" max="50" value="2">
+          </label>
           <label class="select">
             <span data-i18n="archive_root">归档根目录</span>
             <select id="archive-root"></select>
@@ -539,6 +574,10 @@
   <script src="scripts/dedupe.js"></script>
   <script src="scripts/link-checker.js"></script>
   <script src="scripts/portable-io.js"></script>
+  <script src="scripts/archive-classifier.js"></script>
+  <script src="scripts/archive-planner.js"></script>
+  <script src="scripts/ai-client.js"></script>
+  <script src="scripts/ai-analyzer.js"></script>
   <script src="scripts/manager.js"></script>
 </body>
 

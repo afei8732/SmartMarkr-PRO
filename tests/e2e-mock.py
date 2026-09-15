@@ -102,6 +102,28 @@ def main():
         page.wait_for_timeout(1500)
         print("ARCHIVE_GROUPS", page.evaluate("document.querySelectorAll('#archive-results .result-group').length"))
 
+        # New: AI mode falls back to the local classifier when no model is configured.
+        page.check("input[name=archive-mode][value=ai]")
+        page.fill("#archive-min-group", "1")
+        page.click("#archive-preview")
+        page.wait_for_timeout(2500)
+        print("AI_ARCHIVE_GROUPS", page.evaluate("document.querySelectorAll('#archive-results .result-group').length"))
+        print("AI_STATUS", page.evaluate("document.getElementById('ai-status').textContent.slice(0,60)"))
+
+        # New: date mode buckets by year.
+        page.check("input[name=archive-mode][value=date]")
+        page.click("#archive-preview")
+        page.wait_for_timeout(1500)
+        print("DATE_ARCHIVE_GROUPS", page.evaluate("document.querySelectorAll('#archive-results .result-group').length"))
+
+        # New: AI config panel elements exist and default endpoint is prefilled.
+        print("AI_PANEL", page.evaluate("!!document.getElementById('ai-config-panel')"))
+        print("AI_MODES", page.evaluate("JSON.stringify([...document.querySelectorAll('input[name=archive-mode]')].map(e=>e.value))"))
+
+        # New engines exposed in the page
+        print("ARCHIVE_ENGINES", page.evaluate(
+            "JSON.stringify([!!globalThis.SMArchive,!!globalThis.SMArchivePlanner,!!globalThis.SMAI,!!globalThis.SMAIAnalyzer])"))
+
         # Portable IO round-trip inside the page
         print("PORTABLE_ROUNDTRIP", page.evaluate(
             "(()=>{const h=SMPortableIO.buildNetscapeHtml([{title:'A&B',url:'https://e.example/a?x=1&y=2',path:['Dev']}]);"

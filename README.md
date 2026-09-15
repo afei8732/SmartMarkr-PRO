@@ -7,7 +7,7 @@
 Manifest V3 · 纯本地运行 · 零账号 · 零上传 · 无需后端
 
 [![Manifest](https://img.shields.io/badge/Manifest-V3-blue.svg)](manifest.json)
-[![Tests](https://img.shields.io/badge/tests-19%2F19-brightgreen.svg)](#开发与验证)
+[![Tests](https://img.shields.io/badge/tests-35%2F35-brightgreen.svg)](#开发与验证)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
 
 </div>
@@ -63,7 +63,34 @@ URL 规范化会统一大小写主机名、移除跟踪参数（utm 系列 / fbc
 
 ### 智能归档
 
-三种归档策略：按域名、按类型、按用户自定义文件夹。支持关键词筛选、按组选择目标文件夹、批量执行；执行前自动落快照。
+五种归档策略，可先在界面中预览分组、调整目标后再执行：
+
+| 策略 | 说明 |
+|---|---|
+| 按域名 | 用可注册域（`news.bbc.co.uk` → `bbc.co.uk`）分组，而不是散落的子域 |
+| 按类型 | 内置 15 类分类器（AI、开发、设计、影音、新闻、社交、教育、购物、办公、游戏、金融、旅行等），按主机名 → 注册域 → 路径 → 标题 → URL 分级打分 |
+| **按 AI 智能分类** | 由大模型逐个判断归属，可返回置信度、标签与判定理由；模型不可用时自动回退到本地分类器 |
+| 按添加时间 | 按年份分桶（今年 / 去年 / 各历史年份 / 未知） |
+| 按用户文件夹 | 依据现有文件夹结构归类 |
+
+分类采用「主机名优先」的加权打分，通用关键词（如 `ai`、`doc`）不会覆盖决定性的域名判断；低于阈值就归入「其他」而不是强行归类。
+
+### AI 智能分类（可选）
+
+1. 在「书签归档」中展开 **AI 配置**
+2. 填入 OpenAI 兼容接口地址（如 `http://192.168.3.176:8787/v1`）、API Key，点击「拉取模型」
+3. 选择模型后点「测试连接」，「保存配置」写入本机
+4. 选择「AI 智能分类归档」→「生成预览」
+
+设计要点：
+
+- **隐私**：只发送书签的 `id`、标题（截断 200 字）、URL（截断 300 字）与最末级文件夹名，**不上传整棵书签树、不上传页面内容**
+- **批处理**：默认每批 25 条、并发 2，带进度提示
+- **严格校验**：模型返回的分类必须命中允许的分类 id，非法或缺失的条目会被丢弃并记录
+- **本地兜底**：接口未配置、超时或报错时，自动改用本地分类器，流程不会中断
+- **安全**：配置只存本机浏览器存储；API Key 不会写入日志或错误信息
+
+执行归档前会自动落快照，可随时还原。
 
 ### 文件夹清理
 
@@ -145,12 +172,17 @@ SmartMarkr-PRO/
 │   ├── core-utils.js           URL 规范化、主域名解析、中英分词、并发池、限速器、LRU
 │   ├── dedupe.js               重复与相似书签检测引擎
 │   ├── link-checker.js         链接健康检查引擎
+│   ├── archive-classifier.js   15 类书签分类引擎（主机名优先加权打分）
+│   ├── archive-planner.js      归档方案预演 / 冲突检测 / 结果校验
+│   ├── ai-client.js            OpenAI 兼容客户端（重试、JSON 修复、批量）
+│   ├── ai-analyzer.js          AI 分类分析器（严格校验 + 本地兜底）
 │   ├── portable-io.js          JSON / Netscape HTML 导入导出引擎
 │   ├── backup-manager.js       快照创建、列出、还原、导出
 │   └── manager.js              界面控制器与 Chrome Bookmarks API 集成
 ├── tests/
 │   ├── selftest.js             Node 20 回归测试（node:test）
 │   ├── mv3-compliance.js       Manifest V3 合规检查（CSP、清单、加载顺序）
+│   ├── archive-ai.js           归档引擎与 AI 分析器回归测试
 │   └── e2e-mock.py             Playwright + chrome.* 桩的端到端验证
 └── docs/
     └── COMPARISON.md           同类项目能力对比与取舍
@@ -163,12 +195,15 @@ manager.js  ──uses──▶  dedupe.js
             ──uses──▶  link-checker.js
             ──uses──▶  portable-io.js
             ──uses──▶  backup-manager.js
+            ──uses──▶  archive-classifier.js
+            ──uses──▶  archive-planner.js
+            ──uses──▶  ai-analyzer.js ──uses──▶ ai-client.js
                             │
                             ▼
                         core-utils.js   （无外部依赖）
 ```
 
-四个引擎模块均为 UMD 形式：浏览器中挂载到 `globalThis.SM*`，Node 中可 `require`，因此都能脱离扩展环境做单元测试。全部为原生 JavaScript，**没有任何运行时第三方依赖**。
+八个引擎模块均为 UMD 形式：浏览器中挂载到 `globalThis.SM*`，Node 中可 `require`，因此都能脱离扩展环境做单元测试。全部为原生 JavaScript，**没有任何运行时第三方依赖**。
 
 ---
 
@@ -176,7 +211,7 @@ manager.js  ──uses──▶  dedupe.js
 
 ```bash
 npm run check   # 对全部脚本做 node --check 语法检查
-npm test        # Node 20 回归测试 + MV3 合规检查（19 项）
+npm test        # Node 20 回归测试 + MV3 合规 + 归档/AI 引擎（35 项）
 python tests/e2e-mock.py   # 端到端：真实 Chrome + chrome.* API 桩
 ```
 
@@ -208,6 +243,27 @@ python tests/e2e-mock.py   # 端到端：真实 Chrome + chrome.* API 桩
 | 17 | service worker 使用 `chrome.action` 而非 `chrome.browserAction` |
 | 18 | `manager.js` 不含 MV2 专有 API |
 | 19 | 五个引擎模块均为 UMD 且可从 Node 引入 |
+
+**归档与 AI 引擎检查（tests/archive-ai.js，16 项）**：
+
+| 编号 | 用例 |
+|---|---|
+| 20 | 15 类分类器把常见站点映射到稳定分类 id |
+| 21 | 畸形 / 空 / 非 http URL 不抛异常 |
+| 22 | `classifyAll` 输出统计与分组 |
+| 23 | 归档规划对已在归档根内的书签保持幂等 |
+| 24 | 归档规划不修改输入对象 |
+| 25 | AI 客户端规范化 `…/v1` 与不带 `/v1` 的地址 |
+| 26 | 模型列表兼容两种响应结构 |
+| 27 | 429 自动重试后成功 |
+| 28 | 401 快速失败且不泄漏 API Key |
+| 29 | 带围栏与尾逗号的 JSON 能自动修复 |
+| 30 | 非法分类 id 被丢弃而不抛异常 |
+| 31 | 提示词列出全部分类并要求严格 JSON |
+| 32 | **AI 调用参数顺序为 (config, messages)** —— 锁定曾导致全部批次静默回退的缺陷 |
+| 33 | 未配置 AI 时全部走本地兜底 |
+| 34 | 模型失败时不抛异常，返回本地结果 |
+| 35 | 只向模型发送裁剪后的书签字段 |
 
 端到端脚本额外验证：五个引擎在页面中全部加载、重复检测出结果、快照创建成功、失效检测报告 404、空文件夹识别、归档预览、导入导出往返、相似聚类，且**页面零报错**。
 
@@ -275,6 +331,7 @@ python tests/e2e-mock.py   # 端到端：真实 Chrome + chrome.* API 桩
 
 | 版本 | 变更 |
 |---|---|
+| **v2.1.0** | 书签归档重做：15 类本地分类引擎、归档方案预演与冲突检测、按时间归档；新增可选 AI 智能分类（OpenAI 兼容接口、批量、严格校验、本地兜底、密钥不外泄）；归档前自动快照；测试扩展到 35 项 |
 | **v2.0.0** | Manifest V3 迁移；新增快照备份与还原、独立失效链接引擎、重复检测引擎重写（倒排索引 + 并查集）、稳健导入导出引擎（含重复处理策略）、Node 回归测试与端到端验证；重写文档 |
 | v1.0.0 | 首个公开版本：重复检测、空文件夹清理、异常链接检测、智能归档 |
 

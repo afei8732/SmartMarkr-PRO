@@ -48,7 +48,15 @@
       concurrency: 4
     },
     archive: {
-      mode: 'domain'
+      mode: 'domain',
+      minGroupSize: 2
+    },
+    ai: {
+      baseUrl: 'http://192.168.3.176:8787/v1',
+      apiKey: '',
+      model: '',
+      batchSize: 25,
+      concurrency: 2
     }
   };
 
@@ -159,6 +167,19 @@
       archive_by_domain: '按域名归档',
       archive_by_type: '按类型归档',
       archive_by_custom: '按用户文件夹归档',
+      archive_by_ai: 'AI 智能分类归档',
+      archive_by_date: '按添加时间归档',
+      archive_min_group: '最小分组数量',
+      ai_config_title: 'AI 配置',
+      ai_base_url: '接口地址',
+      ai_api_key: 'API Key',
+      ai_model: '模型',
+      ai_test: '测试连接',
+      ai_refresh_models: '拉取模型',
+      ai_save: '保存配置',
+      ai_clear: '清除配置',
+      ai_base_url_placeholder: 'http://192.168.3.176:8787/v1',
+      ai_api_key_placeholder: 'sk-...',
       archive_root: '归档根目录',
       refresh_folders: '刷新目录',
       archive_new_root: '新建归档根目录',
@@ -345,6 +366,19 @@
       archive_by_domain: 'By domain',
       archive_by_type: 'By type',
       archive_by_custom: 'By folders',
+      archive_by_ai: 'AI smart categories',
+      archive_by_date: 'By date added',
+      archive_min_group: 'Minimum group size',
+      ai_config_title: 'AI configuration',
+      ai_base_url: 'Endpoint',
+      ai_api_key: 'API key',
+      ai_model: 'Model',
+      ai_test: 'Test connection',
+      ai_refresh_models: 'Fetch models',
+      ai_save: 'Save',
+      ai_clear: 'Clear',
+      ai_base_url_placeholder: 'http://192.168.3.176:8787/v1',
+      ai_api_key_placeholder: 'sk-...',
       archive_root: 'Archive root',
       refresh_folders: 'Refresh folders',
       archive_new_root: 'New archive root',
@@ -488,6 +522,17 @@
     archiveKeywordFilter: document.getElementById('archive-keyword-filter'),
     archiveBulkTarget: document.getElementById('archive-bulk-target'),
     archiveApplyFiltered: document.getElementById('archive-apply-filtered'),
+    archiveMinGroup: document.getElementById('archive-min-group'),
+
+    aiConfigPanel: document.getElementById('ai-config-panel'),
+    aiBaseUrl: document.getElementById('ai-base-url'),
+    aiApiKey: document.getElementById('ai-api-key'),
+    aiModel: document.getElementById('ai-model'),
+    aiTest: document.getElementById('ai-test'),
+    aiRefreshModels: document.getElementById('ai-refresh-models'),
+    aiSave: document.getElementById('ai-save'),
+    aiClear: document.getElementById('ai-clear'),
+    aiStatus: document.getElementById('ai-status'),
     refreshFolders: document.getElementById('refresh-folders'),
 
     exportBookmarks: document.getElementById('export-bookmarks'),
@@ -1822,7 +1867,186 @@
       .filter(Boolean);
   }
 
+  // ===== AI 配置管理 =====
+  function getAiConfig() {
+    const settings = loadSettings();
+    const ai = settings.ai || {};
+    return {
+      baseUrl: (elements.aiBaseUrl?.value || ai.baseUrl || '').trim(),
+      apiKey: (elements.aiApiKey?.value || ai.apiKey || '').trim(),
+      model: (elements.aiModel?.value || ai.model || '').trim(),
+      batchSize: ai.batchSize || 25,
+      concurrency: ai.concurrency || 2
+    };
+  }
 
+  function aiAvailable() {
+    const ai = typeof globalThis !== 'undefined' ? globalThis.SMAI : null;
+    const analyzer = typeof globalThis !== 'undefined' ? globalThis.SMAIAnalyzer : null;
+    return !!(ai && analyzer && ai.chat && analyzer.analyzeBookmarks);
+  }
+
+  function setAiStatus(message, tone) {
+    setTransferStatus(elements.aiStatus, message, tone || '');
+  }
+
+  function applyAiConfigToUi() {
+    const settings = loadSettings();
+    const ai = settings.ai || {};
+    if (elements.aiBaseUrl) elements.aiBaseUrl.value = ai.baseUrl || '';
+    if (elements.aiApiKey) elements.aiApiKey.value = ai.apiKey || '';
+    if (elements.aiModel && ai.model) {
+      const has = Array.from(elements.aiModel.options).some(o => o.value === ai.model);
+      if (!has) {
+        const opt = document.createElement('option');
+        opt.value = ai.model;
+        opt.textContent = ai.model;
+        elements.aiModel.appendChild(opt);
+      }
+      elements.aiModel.value = ai.model;
+    }
+  }
+
+  function saveAiConfig() {
+    const settings = loadSettings();
+    settings.ai = {
+      ...(settings.ai || {}),
+      baseUrl: (elements.aiBaseUrl?.value || '').trim(),
+      apiKey: (elements.aiApiKey?.value || '').trim(),
+      model: (elements.aiModel?.value || '').trim()
+    };
+    saveSettings(settings);
+    setAiStatus('AI 配置已保存（仅存于本机浏览器）', 'success');
+  }
+
+  function clearAiConfig() {
+    const settings = loadSettings();
+    settings.ai = { ...DEFAULT_SETTINGS.ai };
+    saveSettings(settings);
+    applyAiConfigToUi();
+    setAiStatus('AI 配置已清除', 'info');
+  }
+
+  async function refreshAiModels() {
+    const ai = typeof globalThis !== 'undefined' ? globalThis.SMAI : null;
+    if (!ai || !ai.listModels) {
+      setAiStatus('AI 模块不可用', 'error');
+      return;
+    }
+    const config = getAiConfig();
+    if (!config.baseUrl) {
+      setAiStatus('请先填写接口地址', 'error');
+      return;
+    }
+    setAiStatus('正在拉取模型列表…', 'info');
+    try {
+      const models = await ai.listModels(config, { timeoutMs: 20000 });
+      if (elements.aiModel) {
+        const current = elements.aiModel.value;
+        elements.aiModel.textContent = '';
+        models.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          elements.aiModel.appendChild(opt);
+        });
+        if (current && models.includes(current)) {
+          elements.aiModel.value = current;
+        } else {
+          const preferred = models.find(m => /workbuddy\/deepseek-v4\.1-flash/.test(m))
+            || models.find(m => /deepseek/i.test(m))
+            || models[0];
+          if (preferred) elements.aiModel.value = preferred;
+        }
+      }
+      setAiStatus(`已获取 ${models.length} 个模型`, 'success');
+    } catch (error) {
+      setAiStatus(`拉取失败：${error.message || error}`, 'error');
+    }
+  }
+
+  async function testAiConnection() {
+    const ai = typeof globalThis !== 'undefined' ? globalThis.SMAI : null;
+    if (!ai || !ai.testConnection) {
+      setAiStatus('AI 模块不可用', 'error');
+      return;
+    }
+    const config = getAiConfig();
+    if (!config.baseUrl || !config.model) {
+      setAiStatus('请先填写接口地址并选择模型', 'error');
+      return;
+    }
+    setAiStatus('正在测试连接…', 'info');
+    const result = await ai.testConnection(config, { timeoutMs: 30000 });
+    if (result.ok) {
+      setAiStatus(`连接成功 · ${result.modelCount} 个模型 · ${result.latencyMs}ms`, 'success');
+    } else {
+      setAiStatus(`连接失败：${result.error}`, 'error');
+    }
+  }
+
+  // ===== 归档引擎桥接 =====
+  function archiveEngine() {
+    return typeof globalThis !== 'undefined' ? globalThis.SMArchive : null;
+  }
+
+  function archiveCategoryLabel(categoryId) {
+    const engine = archiveEngine();
+    if (engine && Array.isArray(engine.CATEGORIES)) {
+      const found = engine.CATEGORIES.find(c => c.id === categoryId);
+      if (found) return `${found.icon || ''} ${found.label}`.trim();
+    }
+    return categoryId || ARCHIVE_OTHER_LABEL;
+  }
+
+  /** Classify locally with SMArchive, falling back to the legacy classifier. */
+  function classifyBookmarkLocal(bookmark) {
+    const engine = archiveEngine();
+    if (engine && typeof engine.classify === 'function') {
+      try {
+        const result = engine.classify(bookmark);
+        return archiveCategoryLabel(result.category);
+      } catch {
+        /* fall through */
+      }
+    }
+    return classifyBookmark(bookmark);
+  }
+
+  /** Run the AI analyzer when configured; returns a Map(bookmarkId -> label). */
+  async function analyzeWithAi(bookmarks) {
+    if (!aiAvailable()) return null;
+    const config = getAiConfig();
+    if (!config.baseUrl || !config.model) return null;
+    const analyzer = globalThis.SMAIAnalyzer;
+    setAiStatus(`AI 分析中：共 ${bookmarks.length} 条…`, 'info');
+    const analysis = await analyzer.analyzeBookmarks(bookmarks, config, {
+      batchSize: config.batchSize,
+      concurrency: config.concurrency,
+      onProgress: (done, total) => {
+        setAiStatus(`AI 分析进度 ${done}/${total}`, 'info');
+      }
+    });
+    const map = new Map();
+    for (const item of analysis.results || []) {
+      map.set(item.id, archiveCategoryLabel(item.category));
+    }
+    const aiCount = (analysis.stats && analysis.stats.analyzed - analysis.stats.fallback) || 0;
+    setAiStatus(`AI 分析完成：${aiCount} 条由模型判定，${analysis.stats.fallback || 0} 条本地兜底`, 'success');
+    return map;
+  }
+
+  function mapToLegacyGroups(classMap, bookmarks) {
+    const groups = new Map();
+    for (const bookmark of bookmarks) {
+      const key = classMap.get(bookmark.id) || ARCHIVE_OTHER_LABEL;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(bookmark);
+    }
+    return Array.from(groups.entries())
+      .map(([name, items]) => ({ name, items }))
+      .sort((a, b) => b.items.length - a.items.length);
+  }
 
   function matchesArchiveKeywords(item, terms) {
     if (!terms.length) return true;
@@ -2003,6 +2227,59 @@
     );
 
     state.archiveBookmarks = validBookmarks;
+
+    // AI mode: classify every bookmark with the model (local fallback on failure).
+    if (mode === 'ai') {
+      const minGroup = Math.max(1, Number(elements.archiveMinGroup?.value || 2));
+      let classMap = null;
+      try {
+        classMap = await analyzeWithAi(validBookmarks);
+      } catch (error) {
+        setAiStatus(`AI 分析失败，已回退本地分类：${error.message || error}`, 'error');
+      }
+      if (!classMap) {
+        classMap = new Map();
+        for (const bookmark of validBookmarks) {
+          classMap.set(bookmark.id, classifyBookmarkLocal(bookmark));
+        }
+      }
+      const aiGroups = mapToLegacyGroups(classMap, validBookmarks)
+        .filter(group => group.items.length >= minGroup);
+      state.archiveGroups = aiGroups;
+      state.archiveFilterOptions = aiGroups.map(g => g.name).filter(Boolean);
+      updateArchiveBulkTargetOptions();
+      updateArchiveFilterOptions();
+      renderArchiveResults(aiGroups);
+      return;
+    }
+
+    // Date mode: bucket by the year the bookmark was added.
+    if (mode === 'date') {
+      const minGroup = Math.max(1, Number(elements.archiveMinGroup?.value || 2));
+      const currentYear = new Date().getFullYear();
+      const dateGroups = new Map();
+      for (const bookmark of validBookmarks) {
+        const added = Number(bookmark.dateAdded) || 0;
+        const year = added ? new Date(added).getFullYear() : null;
+        let key;
+        if (!year) key = '📅 未知时间';
+        else if (year >= currentYear) key = '📅 今年';
+        else if (year === currentYear - 1) key = '📅 去年';
+        else key = `📅 ${year} 年`;
+        if (!dateGroups.has(key)) dateGroups.set(key, []);
+        dateGroups.get(key).push(bookmark);
+      }
+      const sortedDate = Array.from(dateGroups.entries())
+        .map(([name, items]) => ({ name, items }))
+        .sort((a, b) => b.items.length - a.items.length)
+        .filter(group => group.items.length >= minGroup);
+      state.archiveGroups = sortedDate;
+      state.archiveFilterOptions = sortedDate.map(g => g.name).filter(Boolean);
+      updateArchiveBulkTargetOptions();
+      updateArchiveFilterOptions();
+      renderArchiveResults(sortedDate);
+      return;
+    }
 
     const allGroups = computeArchiveGroups(validBookmarks, mode, groupKeys, []);
     const preferred = state.archiveGroupSelections;
@@ -2321,6 +2598,11 @@
     const keywordTerms = parseArchiveKeywords(state.archiveKeywordFilter);
     const moves = [];
     const sourceParentIds = new Set();
+
+    await AutoBackup.capture('书签归档', {
+      count: selected.length,
+      groups: selected.slice(0, 50)
+    });
 
     for (const groupName of selected) {
       // Debug: Check if group exists
@@ -3845,6 +4127,18 @@
     }
 
     elements.archivePreview.addEventListener('click', buildArchivePreview);
+    if (elements.aiTest) {
+      elements.aiTest.addEventListener('click', testAiConnection);
+    }
+    if (elements.aiRefreshModels) {
+      elements.aiRefreshModels.addEventListener('click', refreshAiModels);
+    }
+    if (elements.aiSave) {
+      elements.aiSave.addEventListener('click', saveAiConfig);
+    }
+    if (elements.aiClear) {
+      elements.aiClear.addEventListener('click', clearAiConfig);
+    }
     elements.archiveSelectAll.addEventListener('click', () => selectAll('.archive-checkbox'));
     elements.archiveRun.addEventListener('click', runArchive);
 
@@ -4093,6 +4387,7 @@
     setupEvents();
     const settings = loadSettings();
     applySettingsState(settings);
+    applyAiConfigToUi();
     await buildFolderSelect();
     initResultsColumns();
     toggleFloatButtons();

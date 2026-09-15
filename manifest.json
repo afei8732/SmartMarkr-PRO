@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "SmartMarkr 智签管家",
-  "version": "2.0.0",
-  "description": "SmartMarkr 智签管家 2.0 - 书签清理与归档：重复检测、失效链接检测、空文件夹清理、智能归档、快照备份与导入导出，全部本地处理。",
+  "version": "2.1.0",
+  "description": "SmartMarkr 智签管家 2.1 - 书签清理与归档：重复检测、失效链接检测、空文件夹清理、智能归档（本地分类器 + 可选 AI 分类）、快照备份与导入导出。",
   "homepage_url": "https://github.com/afei8732/SmartMarkr-PRO",
   "action": {
     "default_title": "SmartMarkr 智签管家",

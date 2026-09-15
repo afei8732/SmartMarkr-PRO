@@ -81,6 +81,10 @@ test("manager.html loads scripts locally and in dependency order", () => {
     "scripts/dedupe.js",
     "scripts/link-checker.js",
     "scripts/portable-io.js",
+    "scripts/archive-classifier.js",
+    "scripts/archive-planner.js",
+    "scripts/ai-client.js",
+    "scripts/ai-analyzer.js",
     "scripts/manager.js"
   ]);
   for (const tag of tags) {
