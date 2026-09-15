@@ -385,6 +385,79 @@ body {
   border: 1px solid var(--card-border);
 }
 
+/* ========== AI 配置面板 ========== */
+.ai-config {
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.ai-config > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--panel-bg);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.ai-config > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-config > summary::before {
+  content: "▸";
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.ai-config[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.ai-config[open] > summary {
+  border-bottom: 1px solid var(--card-border);
+}
+
+.ai-config-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: flex-end;
+  padding: 14px;
+}
+
+.ai-config-body .input input,
+.ai-config-body .select select {
+  min-width: 240px;
+}
+
+.ai-config-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex-basis: 100%;
+}
+
+.ai-config-body .transfer-hint {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 6px 0 0;
+  font-size: 12px;
+}
+
 /* ========== 表单控件 ========== */
 .check,
 .range,

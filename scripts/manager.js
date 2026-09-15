@@ -4127,6 +4127,22 @@
     }
 
     elements.archivePreview.addEventListener('click', buildArchivePreview);
+    document.querySelectorAll('input[name="archive-mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (radio.value === 'ai' && radio.checked && elements.aiConfigPanel) {
+          elements.aiConfigPanel.open = true;
+          if (elements.aiStatus && !elements.aiStatus.textContent) {
+            const ai = getAiConfig();
+            setAiStatus(
+              ai.baseUrl && ai.model
+                ? 'AI 已配置，可直接生成预览'
+                : '请先填写接口地址并拉取模型；留空则使用本地分类',
+              'info'
+            );
+          }
+        }
+      });
+    });
     if (elements.aiTest) {
       elements.aiTest.addEventListener('click', testAiConnection);
     }
