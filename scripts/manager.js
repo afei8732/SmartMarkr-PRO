@@ -2231,6 +2231,10 @@
 
     state.archiveFolderOptions = getDescendantFolderTitles(tree, rootId);
     state.archiveMode = mode;
+    state.archiveGroupSelections = [];
+    state.archiveGroupFilterText = '';
+    state.archiveItemTargets = {};
+    if (elements.archiveFilter) elements.archiveFilter.value = '';
 
     let groupKeys = null;
     if (mode === 'custom') {
@@ -4656,4 +4660,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
-
