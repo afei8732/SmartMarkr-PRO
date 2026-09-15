@@ -1,0 +1,10 @@
+{
+  "description": "SmartMarkr bookmark manager extension",
+  "name": "smartmarkr-pro",
+  "private": true,
+  "scripts": {
+    "check": "node --check scripts/core-utils.js && node --check scripts/backup-manager.js && node --check scripts/dedupe.js && node --check scripts/link-checker.js && node --check scripts/portable-io.js && node --check scripts/manager.js",
+    "test": "node --test tests/selftest.js"
+  },
+  "version": "2.0.0"
+}

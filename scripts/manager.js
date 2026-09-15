@@ -63,6 +63,7 @@
       nav_broken: '异常书签',
       nav_archive: '书签归档',
       nav_transfer: '导入导出',
+      nav_snapshots: '快照备份',
       search_title: '书签搜索',
       search_input_label: '请输入关键词、URL或三选项',
       search_input_placeholder: '输入关键词、URL或选三选择',
@@ -86,6 +87,11 @@
       broken_title: '异常书签整理',
       archive_title: '书签归档',
       transfer_title: '导入 / 导出',
+      snapshot_title: '快照备份',
+      snapshot_desc: '每次批量删除或归档前会自动生成完整书签树快照，保留最近 5 份，可随时还原或导出。',
+      snapshot_create: '立即创建快照',
+      snapshot_refresh: '刷新列表',
+      snapshot_clear: '清空快照',
       transfer_desc: '轻松导入或导出你的书签和标签页数据。',
       export_title: '导出',
       export_bookmarks: '导出书签',
@@ -239,6 +245,7 @@
       nav_broken: 'Invalid Links',
       nav_archive: 'Archive',
       nav_transfer: 'Import/Export',
+      nav_snapshots: 'Snapshots',
       search_title: 'Bookmark Search',
       search_input_label: 'Enter keyword, URL or options',
       search_input_placeholder: 'Enter keyword, URL or select options',
@@ -262,6 +269,11 @@
       broken_title: 'Invalid Bookmarks',
       archive_title: 'Archive',
       transfer_title: 'Import / Export',
+      snapshot_title: 'Snapshots',
+      snapshot_desc: 'A full bookmark-tree snapshot is captured before every bulk delete or archive. The 5 most recent are kept and can be restored or exported at any time.',
+      snapshot_create: 'Create snapshot now',
+      snapshot_refresh: 'Refresh list',
+      snapshot_clear: 'Clear snapshots',
       transfer_desc: 'Easily import or export your bookmarks and tab data.',
       export_title: 'Export',
       export_bookmarks: 'Export bookmarks',
@@ -518,6 +530,12 @@
     previewModal: document.getElementById('preview-modal'),
     previewFrame: document.getElementById('preview-frame'),
     previewUrl: document.getElementById('preview-url'),
+
+    snapshotCreate: document.getElementById('snapshot-create'),
+    snapshotRefresh: document.getElementById('snapshot-refresh'),
+    snapshotClear: document.getElementById('snapshot-clear'),
+    snapshotResult: document.getElementById('snapshot-result'),
+    snapshotResults: document.getElementById('snapshot-results'),
     previewClose: document.getElementById('preview-close'),
     previewBackdrop: document.querySelector('#preview-modal .preview-backdrop'),
     previewOpenTab: document.getElementById('preview-open-tab'),
@@ -543,6 +561,24 @@
     elements.undoBtn.disabled = true;
     elements.undoLabel.textContent = '';
   }
+
+  const AutoBackup = (function () {
+    const engine = (typeof globalThis !== 'undefined' && globalThis.SMBackup) || null;
+    return {
+      enabled: true,
+      available() { return !!engine; },
+      async capture(action, details) {
+        if (!this.enabled || !engine) return null;
+        try {
+          const { tree } = await getAllData();
+          return await engine.createSnapshot(tree, action, details || {});
+        } catch (error) {
+          console.warn('snapshot failed', error);
+          return null;
+        }
+      }
+    };
+  })();
 
   function updateSimilarityLabel() {
     const value = Number(elements.similarityThreshold.value || 0.8).toFixed(2);
@@ -781,6 +817,9 @@
   }
 
   async function moveSelectedToTrash(ids, label) {
+    if (ids && ids.length) {
+      await AutoBackup.capture(label || '批量操作', { count: ids.length, ids: ids.slice(0, 200) });
+    }
     const tree = await getTree();
     const trashId = await ensureTrashFolder(tree);
     const moves = [];
@@ -1048,79 +1087,31 @@
     const threshold = Number(elements.similarityThreshold.value || 0.8);
 
     const { bookmarks } = await getAllData();
-    const groups = [];
-    const warnings = [];
-
-    if (includeExact) {
+    const engine = typeof globalThis !== 'undefined' ? globalThis.SMDedupe : null;
+    if (!engine || typeof engine.findDuplicates !== 'function') {
+      console.warn('SMDedupe engine missing; falling back to exact-only grouping');
       const map = new Map();
       for (const bookmark of bookmarks) {
         const key = normalizeExactUrl(bookmark.url);
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(bookmark);
       }
+      const groups = [];
       for (const [key, items] of map.entries()) {
-        if (items.length > 1) {
-          groups.push({ type: 'exact', key, items });
-        }
+        if (items.length > 1) groups.push({ type: 'exact', key, items });
       }
+      state.duplicateGroups = groups;
+      renderDuplicateResults(groups, []);
+      return;
     }
 
-    if (includeSimilar) {
-      const hostMap = new Map();
-      for (const bookmark of bookmarks) {
-        const host = getHostname(bookmark.url);
-        const base = getBaseDomain(host);
-        if (!base) continue;
-        if (!hostMap.has(base)) hostMap.set(base, []);
-        hostMap.get(base).push(bookmark);
-      }
-
-      for (const [host, items] of hostMap.entries()) {
-        if (items.length < 2) continue;
-        if (items.length > 400) {
-          warnings.push(t('warn_group_too_large', { host, count: items.length }));
-          continue;
-        }
-        const uf = buildUnionFind(items.length);
-        for (let i = 0; i < items.length; i++) {
-          for (let j = i + 1; j < items.length; j++) {
-            const scores = similarityScore(items[i], items[j]);
-
-            // 首先检查是否是同一个主域名
-            const hostA = getHostname(items[i].url);
-            const hostB = getHostname(items[j].url);
-            const baseA = getBaseDomain(hostA);
-            const baseB = getBaseDomain(hostB);
-
-            // 只有同一个主域名的书签才能被视为相似
-            if (baseA !== baseB) continue;
-
-            // 同域名下，检查标题或路径相似度
-            const titleSimilar = scores.titleScore >= threshold;
-            const pathSimilar = scores.pathScore >= threshold;
-
-            // 标题相似 或 路径相似（同域名前提下）
-            if (titleSimilar || pathSimilar) {
-              uf.union(i, j);
-            }
-          }
-        }
-        const clusterMap = new Map();
-        for (let i = 0; i < items.length; i++) {
-          const root = uf.find(i);
-          if (!clusterMap.has(root)) clusterMap.set(root, []);
-          clusterMap.get(root).push(items[i]);
-        }
-        for (const cluster of clusterMap.values()) {
-          if (cluster.length > 1) {
-            groups.push({ type: 'similar', key: host, items: cluster });
-          }
-        }
-      }
-    }
-
-    state.duplicateGroups = groups;
-    renderDuplicateResults(groups, warnings);
+    const result = engine.findDuplicates(bookmarks, {
+      includeExact,
+      includeSimilar,
+      threshold
+    });
+    state.duplicateGroups = result.groups || [];
+    renderDuplicateResults(state.duplicateGroups, result.warnings || []);
   }
 
   function renderDuplicateResults(groups, warnings) {
@@ -2790,6 +2781,31 @@
   }
 
   async function checkBookmark(bookmark, timeoutSeconds) {
+    const engine = typeof globalThis !== 'undefined' ? globalThis.SMLinkChecker : null;
+    if (engine && typeof engine.checkBookmark === 'function') {
+      const result = await engine.checkBookmark(
+        {
+          id: bookmark.id,
+          url: bookmark.url || '',
+          title: bookmark.title || '',
+          path: bookmark.path || []
+        },
+        { timeoutMs: Math.max(2000, Number(timeoutSeconds) * 1000 || 8000), retries: 1 }
+      );
+      if (result.status === 'ok' || result.status === 'redirect') return null;
+      const map = {
+        empty: ['empty', '空链接', '链接为空'],
+        invalid: ['invalid', '无效URL', result.reason || 'URL解析失败'],
+        unsupported: ['invalid', '无效URL', result.reason || '不支持的协议'],
+        timeout: ['timeout', '超时', `超过 ${timeoutSeconds}s`],
+        broken: ['status', '状态码异常', `HTTP ${result.httpStatus}`],
+        server_error: ['status', '状态码异常', `HTTP ${result.httpStatus}`],
+        blocked: ['status', '访问受限', `HTTP ${result.httpStatus}`]
+      };
+      const mapped = map[result.status] || ['status', '无法访问', result.reason || '请求失败'];
+      return buildBroken(bookmark, mapped[0], mapped[1], mapped[2]);
+    }
+
     const url = (bookmark.url || '').trim();
     if (!url) {
       return buildBroken(bookmark, 'empty', '空链接', '链接为空');
@@ -3366,6 +3382,125 @@
     setTransferStatus(elements.importResult, '', '');
   }
 
+  async function renderSnapshotList() {
+    if (!elements.snapshotResults) return;
+    elements.snapshotResults.textContent = '';
+    const engine = typeof globalThis !== 'undefined' ? globalThis.SMBackup : null;
+    if (!engine) {
+      setTransferStatus(elements.snapshotResult, '快照模块不可用', 'error');
+      return;
+    }
+    const list = await engine.listSnapshots();
+    if (!list.length) {
+      const empty = document.createElement('div');
+      empty.className = 'result-group';
+      empty.textContent = '暂无快照';
+      elements.snapshotResults.appendChild(empty);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const item of list) {
+      const row = document.createElement('div');
+      row.className = 'result-group';
+      row.dataset.id = item.id;
+
+      const info = document.createElement('div');
+      info.className = 'group-header';
+      const title = document.createElement('h3');
+      const when = new Date(item.createdAt).toLocaleString();
+      title.textContent = `${item.action} · ${when}`;
+      const stats = document.createElement('span');
+      stats.className = 'meta';
+      stats.textContent = `${item.stats.bookmarks} 书签 / ${item.stats.folders} 文件夹`;
+      info.appendChild(title);
+      info.appendChild(stats);
+
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'btn secondary small';
+      restoreBtn.textContent = '还原';
+      restoreBtn.addEventListener('click', () => restoreSnapshotById(item.id));
+      const exportBtn = document.createElement('button');
+      exportBtn.className = 'btn secondary small';
+      exportBtn.textContent = '导出 JSON';
+      exportBtn.addEventListener('click', () => exportSnapshotById(item.id, 'json'));
+      const exportHtmlBtn = document.createElement('button');
+      exportHtmlBtn.className = 'btn secondary small';
+      exportHtmlBtn.textContent = '导出 HTML';
+      exportHtmlBtn.addEventListener('click', () => exportSnapshotById(item.id, 'html'));
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn danger small';
+      deleteBtn.textContent = '删除';
+      deleteBtn.addEventListener('click', async () => {
+        await engine.deleteSnapshot(item.id);
+        await renderSnapshotList();
+      });
+      actions.appendChild(restoreBtn);
+      actions.appendChild(exportBtn);
+      actions.appendChild(exportHtmlBtn);
+      actions.appendChild(deleteBtn);
+
+      row.appendChild(info);
+      row.appendChild(actions);
+      frag.appendChild(row);
+    }
+    elements.snapshotResults.appendChild(frag);
+  }
+
+  async function createManualSnapshot() {
+    const snapshot = await AutoBackup.capture('手动快照', {});
+    if (snapshot) {
+      setTransferStatus(elements.snapshotResult, `已创建快照：${snapshot.stats.bookmarks} 书签 / ${snapshot.stats.folders} 文件夹`, 'success');
+    } else {
+      setTransferStatus(elements.snapshotResult, '快照创建失败', 'error');
+    }
+    await renderSnapshotList();
+  }
+
+  async function exportSnapshotById(id, format) {
+    const engine = typeof globalThis !== 'undefined' ? globalThis.SMBackup : null;
+    if (!engine) return;
+    const snapshot = await engine.getSnapshot(id);
+    if (!snapshot) return;
+    const base = `smartmarkr-snapshot-${snapshot.createdAt.replace(/[:.]/g, '-')}`;
+    if (format === 'html') {
+      downloadJson(engine.snapshotToHtml(snapshot), `${base}.html`, 'text/html');
+    } else {
+      downloadJson(engine.snapshotToJson(snapshot), `${base}.json`, 'application/json');
+    }
+  }
+
+  async function restoreSnapshotById(id) {
+    const engine = typeof globalThis !== 'undefined' ? globalThis.SMBackup : null;
+    if (!engine) return;
+    if (!confirm('还原会用快照内容替换当前书签树，确定继续吗？')) return;
+
+    const snapshot = await engine.getSnapshot(id);
+    if (!snapshot) return;
+    const { tree } = await getAllData();
+    const rootIdMap = {};
+    const walkRoots = (node) => { if (node) rootIdMap[node.id] = node.id; };
+    (tree || []).forEach((node) => { if (node && node.children) node.children.forEach(walkRoots); });
+    if (tree && tree[0]) rootIdMap[tree[0].id] = tree[0].id;
+
+    const adapter = {
+      removeTree: removeTree,
+      create: createBookmark
+    };
+    const result = await engine.restoreSnapshot(snapshot, adapter, { rootIdMap });
+    setTransferStatus(elements.snapshotResult, `还原完成：新建 ${result.created} 项`, 'success');
+    await renderSnapshotList();
+  }
+
+  async function clearSnapshots() {
+    const engine = typeof globalThis !== 'undefined' ? globalThis.SMBackup : null;
+    if (!engine) return;
+    if (!confirm('清空全部快照？此操作不可撤销。')) return;
+    await engine.clearSnapshots();
+    await renderSnapshotList();
+  }
+
   function updateImportTabOptions() {
     const enabled = !!elements.importTabs?.checked;
     if (elements.importTabsOpen) elements.importTabsOpen.disabled = !enabled;
@@ -3744,6 +3879,15 @@
     }
 
     elements.undoBtn.addEventListener('click', undoLastAction);
+    if (elements.snapshotCreate) {
+      elements.snapshotCreate.addEventListener('click', createManualSnapshot);
+    }
+    if (elements.snapshotRefresh) {
+      elements.snapshotRefresh.addEventListener('click', renderSnapshotList);
+    }
+    if (elements.snapshotClear) {
+      elements.snapshotClear.addEventListener('click', clearSnapshots);
+    }
     if (elements.clearTrashBtn) {
       elements.clearTrashBtn.addEventListener('click', clearTrash);
     }

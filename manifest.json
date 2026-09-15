@@ -1,10 +1,10 @@
-﻿{
-  "manifest_version": 2,
+{
+  "manifest_version": 3,
   "name": "SmartMarkr 智签管家",
-  "version": "1.0.0",
-  "description": "SmartMarkr - 智能书签管理工具：重复检测、空文件夹清理、异常链接检测、智能归档，让书签井井有条！",
+  "version": "2.0.0",
+  "description": "SmartMarkr 智签管家 2.0 - 书签清理与归档：重复检测、失效链接检测、空文件夹清理、智能归档、快照备份与导入导出，全部本地处理。",
   "homepage_url": "https://github.com/afei8732/SmartMarkr-PRO",
-  "browser_action": {
+  "action": {
     "default_title": "SmartMarkr 智签管家",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -14,15 +14,14 @@
     }
   },
   "background": {
-    "scripts": [
-      "background/service-worker.js"
-    ],
-    "persistent": false
+    "service_worker": "background/service-worker.js"
   },
   "permissions": [
     "bookmarks",
     "storage",
-    "tabs",
+    "tabs"
+  ],
+  "host_permissions": [
     "<all_urls>"
   ],
   "icons": {

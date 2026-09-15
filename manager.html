@@ -28,6 +28,7 @@
         <button class="btn secondary nav-btn" data-target="broken-section" data-i18n="nav_broken">异常书签</button>
         <button class="btn secondary nav-btn" data-target="archive-section" data-i18n="nav_archive">书签归档</button>
         <button class="btn secondary nav-btn" data-target="transfer-section" data-i18n="nav_transfer">导入导出</button>
+        <button class="btn secondary nav-btn" data-target="snapshot-section" data-i18n="nav_snapshots">快照备份</button>
       </nav>
       <div class="header-actions">
         <!-- 语言切换 -->
@@ -336,6 +337,23 @@
           </div>
         </div>
       </section>
+
+      <section class="card" id="snapshot-section">
+        <div class="card-header">
+          <h2><span class="section-icon">&#128190;</span><span data-i18n="snapshot_title">快照备份</span></h2>
+          <div class="header-buttons">
+            <button class="btn secondary collapse-btn" data-target="snapshot-section" data-i18n="collapse">折叠</button>
+          </div>
+        </div>
+        <p class="transfer-desc" data-i18n="snapshot_desc">每次批量删除或归档前会自动生成完整书签树快照，保留最近 5 份，可随时还原或导出。</p>
+        <div class="actions transfer-actions">
+          <button id="snapshot-create" class="btn primary" data-i18n="snapshot_create">立即创建快照</button>
+          <button id="snapshot-refresh" class="btn secondary" data-i18n="snapshot_refresh">刷新列表</button>
+          <button id="snapshot-clear" class="btn danger" data-i18n="snapshot_clear">清空快照</button>
+        </div>
+        <div id="snapshot-result" class="transfer-hint"></div>
+        <div id="snapshot-results" class="results"></div>
+      </section>
     </main>
   </div>
 
@@ -508,6 +526,11 @@
     </div>
   </div>
 
+  <script src="scripts/core-utils.js"></script>
+  <script src="scripts/backup-manager.js"></script>
+  <script src="scripts/dedupe.js"></script>
+  <script src="scripts/link-checker.js"></script>
+  <script src="scripts/portable-io.js"></script>
   <script src="scripts/manager.js"></script>
 </body>
 
